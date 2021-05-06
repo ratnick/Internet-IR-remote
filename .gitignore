@@ -1,0 +1,12 @@
+*.db
+.vs*
+*vcxproj*
+*.sln
+Arduino/*/_*vm*
+Arduino/*/Debug*
+Arduino/*/Release*
+Arduino/testboard*
+*.old.ino
+*.stl
+*.3w
+irdroino*
