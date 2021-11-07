@@ -263,9 +263,11 @@ uint16_t Samsung_power_toggle[71] = {
             Serial.println("Turn ON and set to and set to Heating and I-SAVE at 10 deg.");
             ac.on();
             ac.setMode(kMitsubishiAcHeat);
-            ac.setFan(kMitsubishiAcFanAuto);
-            ac.setVane(kMitsubishiAcVaneAuto);
-            ac.setTemp(10);
+            ac.setFan(kMitsubishiAcFanSilent);
+            ac.setVane(kMitsubishiAcVaneLowest);
+            ac.setVane(kMitsubishiAcWideVaneWide);
+            ac.setTimer(kMitsubishiAcStopTimer);
+            ac.setiSave10C();
             break;
         case 3:
             Serial.println("V26: Turn ON and set to Heating at 26 deg. Set fan and vane to AUTO.");
@@ -273,6 +275,8 @@ uint16_t Samsung_power_toggle[71] = {
             ac.setMode(kMitsubishiAcHeat);
             ac.setFan(kMitsubishiAcFanAuto);
             ac.setVane(kMitsubishiAcVaneAuto);
+            ac.setVane(kMitsubishiAcWideVaneAuto);
+            ac.setTimer(kMitsubishiAcStartTimer);
             ac.setTemp(26);
             // statements
             break;
