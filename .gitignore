@@ -10,3 +10,4 @@ Arduino/testboard*
 *.stl
 *.3w
 irdroino*
+/Arduino/scrap

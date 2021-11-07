@@ -4,7 +4,10 @@
  Author:	Nikolaj (lokal)
 */
 
-#include "Blynk.h"
+
+#include <Blynk.h>
+#include <CertStoreBearSSL.h>
+#include <BearSSLHelpers.h>
 #include <IRremoteESP8266.h>
 #include <IRrecv.h>
 #include <IRutils.h>
@@ -56,6 +59,150 @@ uint16_t Samsung_power_toggle[71] = {
     char pass[] = "bo2F86dm";
 #endif
 
+    void setup() {
+        Serial.begin(115200);
+#ifdef RECEIVE
+        irrecv.enableIRIn();  // Start the receiver
+        Serial.println("Receiving...");
+#else
+#ifdef CANDLE_LIGHT_TEST
+        ac.begin();
+#else
+        ac.begin();
+        Serial.println("Default state of the remote.");
+        printState();
+        Blynk.begin(auth, ssid, pass);
+#endif
+#endif
+
+        while (!Serial)  // Wait for the serial connection to be establised.
+            delay(50);
+        Serial.printf("\nRunning");
+}
+
+#ifdef RECEIVE
+    void ReceiveIR() {
+
+        if (irrecv.decode(&results)) {
+            // print() & println() can't handle printing long longs. (uint64_t)
+            serialPrintUint64(results.value, HEX);
+            Serial.println("");
+            irrecv.resume();  // Receive the next value
+        }
+        delay(100);
+
+    }
+#endif
+
+#ifdef CANDLE_LIGHT_TEST
+    void SendIR() {
+        Serial.println("Toggling power ON");
+#if SEND_GLOBALCACHE
+        //ac.sendGC(Samsung_power_toggle, 71);
+        ac.sendNEC(CandleLight_power_on);
+        delay(2000);
+        Serial.println("Toggling power OFF");
+        ac.sendNEC(CandleLight_power_off);
+#else   // SEND_GLOBALCACHE
+        Serial.println("Can't send because SEND_GLOBALCACHE has been disabled.");
+#endif  // SEND_GLOBALCACHE
+        delay(2000);
+    }
+#endif
+
+    void loop() {
+
+#ifdef RECEIVE
+        ReceiveIR();
+#else
+#ifdef CANDLE_LIGHT_TEST
+
+
+        // LED: LOW = on, HIGH = off
+        Serial.println("Start blinking");
+        for (int i = 0; i < 20; i++)
+        {
+            digitalWrite(BUILTIN_LED, LOW);
+            delay(100);
+            digitalWrite(BUILTIN_LED, HIGH);
+            delay(100);
+        }
+
+
+        /*    Serial.println(0);
+            IRsend ac00(0);  // Set the GPIO to be used to sending the message.
+            ac00.sendNEC(CandleLight_power_on);
+            delay(4000);
+            Serial.println(1);
+            IRsend ac01(1);  // Set the GPIO to be used to sending the message.
+            ac01.sendNEC(CandleLight_power_on);
+            delay(4000);
+            Serial.println(2);
+            IRsend ac02(2);  // Set the GPIO to be used to sending the message.
+            ac02.sendNEC(CandleLight_power_on);
+            delay(4000);
+            Serial.println(3);
+            IRsend ac03(3);  // Set the GPIO to be used to sending the message.
+            ac03.sendNEC(CandleLight_power_on);
+            delay(4000);
+            Serial.println(4);
+            IRsend ac04(4);  // Set the GPIO to be used to sending the message.
+            ac04.sendNEC(CandleLight_power_on);
+            delay(4000);
+            Serial.println(5);
+            IRsend ac05(5);  // Set the GPIO to be used to sending the message.
+            ac05.sendNEC(CandleLight_power_on);
+            delay(4000);
+            Serial.println(6);
+            IRsend ac06(6);  // Set the GPIO to be used to sending the message.
+            ac06.sendNEC(CandleLight_power_on);
+            delay(4000);
+            Serial.println(7);
+            IRsend ac07(7);  // Set the GPIO to be used to sending the message.
+            ac07.sendNEC(CandleLight_power_on);
+            delay(4000);
+            Serial.println(8);
+            IRsend ac08(8);  // Set the GPIO to be used to sending the message.
+            ac08.sendNEC(CandleLight_power_on);
+            delay(4000);
+            Serial.println(9);
+            IRsend ac09(9);  // Set the GPIO to be used to sending the message.
+            ac09.sendNEC(CandleLight_power_on);
+            delay(4000);
+            Serial.println(10);
+            IRsend ac10(10);  // Set the GPIO to be used to sending the message.
+            ac10.sendNEC(CandleLight_power_on);
+            delay(4000);
+            Serial.println(11);
+            IRsend ac11(11);  // Set the GPIO to be used to sending the message.
+            ac11.sendNEC(CandleLight_power_on);
+            delay(4000);
+            Serial.println(12);
+            IRsend ac12(12);  // Set the GPIO to be used to sending the message.
+            ac12.sendNEC(CandleLight_power_on);
+            delay(4000);
+            Serial.println(13);
+            IRsend ac13(13);  // Set the GPIO to be used to sending the message.
+            ac13.sendNEC(CandleLight_power_on);
+            delay(4000);
+            Serial.println(14);
+            IRsend ac14(14);  // Set the GPIO to be used to sending the message.
+            ac14.sendNEC(CandleLight_power_on);
+            delay(4000);
+            Serial.println(15);
+            IRsend ac15(15);  // Set the GPIO to be used to sending the message.
+            ac15.sendNEC(CandleLight_power_on);
+            delay(4000);
+            Serial.println(16);
+            IRsend ac16(16);  // Set the GPIO to be used to sending the message.
+        */
+        SendIR();
+#else
+        Blynk.run();
+#endif
+#endif
+    }
+
 #ifdef CANDLE_LIGHT_TEST
     uint64_t CandleLight_power_off = 0xFF906F; // NEC FF906F
     uint64_t CandleLight_power_on = 0xFF807F;  // NEC FF807F
@@ -82,174 +229,62 @@ uint16_t Samsung_power_toggle[71] = {
         Serial.println();
     }
 
+// This function is called when V0 is received fromthe Blynk app. 
+// It then sends V0 (ON or OFF) to the IR port
 
-
-
-BLYNK_WRITE(V0) {  // CANDLE LIGHT ON
-    if (param.asInt() == 1) {
-        Serial.println("ON");
-        ac.on();
-    }
-    else {
-        Serial.println("OFF");
+    BLYNK_WRITE(V0) {
+        Serial.println("TURN OFF");
         ac.off();
+        ac.send();
+        printState();
+        delay(5000);
     }
-    ac.send();
-    printState();
-    delay(5000);
-}
-
-BLYNK_WRITE(V1) {  // TEMPERATURE
-    Serial.println("TEMPERATUR");
-    ac.setTemp(param.asInt());
-    ac.send();
-    printState();
-    delay(5000);
-}
-
-#endif
-
-void setup() {
-    Serial.begin(115200);
 
 
-    #ifdef RECEIVE
-        irrecv.enableIRIn();  // Start the receiver
-    #else
-        #ifdef CANDLE_LIGHT_TEST
-            ac.begin();
-        #else
-            ac.begin();
-            Serial.println("Default state of the remote.");
-            printState();
-            Blynk.begin(auth, ssid, pass);
-        #endif
-    #endif
+    // This function is called when V0 is received fromthe Blynk app. 
+    // It then sends V0 (ON or OFF) to the IR port
+    BLYNK_WRITE(V1) {  
+        Serial.printf("SET TEMPERATURE TO %d \n", param.asInt());
+        ac.setTemp(param.asInt());
+        ac.send();
+        printState();
+        delay(5000);
+    }
 
-    while (!Serial)  // Wait for the serial connection to be establised.
-        delay(50);
-    Serial.printf("\nRunning");
-}
-
-#ifdef RECEIVE
-    void ReceiveIR() {
-
-        if (irrecv.decode(&results)) {
-            // print() & println() can't handle printing long longs. (uint64_t)
-            serialPrintUint64(results.value, HEX);
-            Serial.println("");
-            irrecv.resume();  // Receive the next value
+    BLYNK_WRITE(V2) {
+        int var = param.asInt();
+        Serial.printf("V2: SET NEW MODE: %d \n", var);
+        switch (var) {
+        case 1:
+            Serial.println("TURN OFF");
+            ac.off();
+            break;
+        case 2:
+            Serial.println("Turn ON and set to and set to Heating and I-SAVE at 10 deg.");
+            ac.on();
+            ac.setMode(kMitsubishiAcHeat);
+            ac.setFan(kMitsubishiAcFanAuto);
+            ac.setVane(kMitsubishiAcVaneAuto);
+            ac.setTemp(10);
+            break;
+        case 3:
+            Serial.println("V26: Turn ON and set to Heating at 26 deg. Set fan and vane to AUTO.");
+            ac.on();
+            ac.setMode(kMitsubishiAcHeat);
+            ac.setFan(kMitsubishiAcFanAuto);
+            ac.setVane(kMitsubishiAcVaneAuto);
+            ac.setTemp(26);
+            // statements
+            break;
+        default:
+            Serial.printf("V2: Unsupported parameter: %d\n", var);
+            break;
         }
-        delay(100);
+        ac.send();
+        printState();
+        delay(5000);
 
     }
+
 #endif
 
-#ifdef CANDLE_LIGHT_TEST
-    void SendIR() {
-        Serial.println("Toggling power ON");
-    #if SEND_GLOBALCACHE
-        //ac.sendGC(Samsung_power_toggle, 71);
-        ac.sendNEC(CandleLight_power_on);
-        delay(2000);
-        Serial.println("Toggling power OFF");
-        ac.sendNEC(CandleLight_power_off);
-    #else   // SEND_GLOBALCACHE
-        Serial.println("Can't send because SEND_GLOBALCACHE has been disabled.");
-    #endif  // SEND_GLOBALCACHE
-        delay(2000);
-    }
-#endif
-
-void loop() {
-
-    #ifdef RECEIVE
-        ReceiveIR();
-    #else
-        #ifdef CANDLE_LIGHT_TEST
-
-    
-    // LED: LOW = on, HIGH = off
-    Serial.println("Start blinking");
-    for (int i = 0; i < 20; i++)
-    {
-        digitalWrite(BUILTIN_LED, LOW);
-        delay(100);
-        digitalWrite(BUILTIN_LED, HIGH);
-        delay(100);
-    }
-
-
-/*    Serial.println(0);
-    IRsend ac00(0);  // Set the GPIO to be used to sending the message.
-    ac00.sendNEC(CandleLight_power_on);
-    delay(4000);
-    Serial.println(1);
-    IRsend ac01(1);  // Set the GPIO to be used to sending the message.
-    ac01.sendNEC(CandleLight_power_on);
-    delay(4000);
-    Serial.println(2);
-    IRsend ac02(2);  // Set the GPIO to be used to sending the message.
-    ac02.sendNEC(CandleLight_power_on);
-    delay(4000);
-    Serial.println(3);
-    IRsend ac03(3);  // Set the GPIO to be used to sending the message.
-    ac03.sendNEC(CandleLight_power_on);
-    delay(4000);
-    Serial.println(4);
-    IRsend ac04(4);  // Set the GPIO to be used to sending the message.
-    ac04.sendNEC(CandleLight_power_on);
-    delay(4000);
-    Serial.println(5);
-    IRsend ac05(5);  // Set the GPIO to be used to sending the message.
-    ac05.sendNEC(CandleLight_power_on);
-    delay(4000);
-    Serial.println(6);
-    IRsend ac06(6);  // Set the GPIO to be used to sending the message.
-    ac06.sendNEC(CandleLight_power_on);
-    delay(4000);
-    Serial.println(7);
-    IRsend ac07(7);  // Set the GPIO to be used to sending the message.
-    ac07.sendNEC(CandleLight_power_on);
-    delay(4000);
-    Serial.println(8);
-    IRsend ac08(8);  // Set the GPIO to be used to sending the message.
-    ac08.sendNEC(CandleLight_power_on);
-    delay(4000);
-    Serial.println(9);
-    IRsend ac09(9);  // Set the GPIO to be used to sending the message.
-    ac09.sendNEC(CandleLight_power_on);
-    delay(4000);
-    Serial.println(10);
-    IRsend ac10(10);  // Set the GPIO to be used to sending the message.
-    ac10.sendNEC(CandleLight_power_on);
-    delay(4000);
-    Serial.println(11);
-    IRsend ac11(11);  // Set the GPIO to be used to sending the message.
-    ac11.sendNEC(CandleLight_power_on);
-    delay(4000);
-    Serial.println(12);
-    IRsend ac12(12);  // Set the GPIO to be used to sending the message.
-    ac12.sendNEC(CandleLight_power_on);
-    delay(4000);
-    Serial.println(13);
-    IRsend ac13(13);  // Set the GPIO to be used to sending the message.
-    ac13.sendNEC(CandleLight_power_on);
-    delay(4000);
-    Serial.println(14);
-    IRsend ac14(14);  // Set the GPIO to be used to sending the message.
-    ac14.sendNEC(CandleLight_power_on);
-    delay(4000);
-    Serial.println(15);
-    IRsend ac15(15);  // Set the GPIO to be used to sending the message.
-    ac15.sendNEC(CandleLight_power_on);
-    delay(4000);
-    Serial.println(16);
-    IRsend ac16(16);  // Set the GPIO to be used to sending the message.
-*/
-        SendIR();
-        #else
-            Blynk.run();
-        #endif
-    #endif
-}
