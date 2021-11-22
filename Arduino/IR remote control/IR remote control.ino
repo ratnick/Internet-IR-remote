@@ -219,30 +219,43 @@ uint16_t Samsung_power_toggle[71] = {
 #else
     void printState() {
         // Display the settings.
-        Serial.println("A/C remote is in the following state:");
-        Serial.printf("  %s\n", ac.toString().c_str());
+        // Serial.println("A/C remote is in the following state:");
         // Display the encoded IR sequence.
         unsigned char* ir_code = ac.getRaw();
-        Serial.print("IR Code: 0x");
+        Serial.printf("Code      : 0x");
         for (uint8_t i = 0; i < kMitsubishiACStateLength; i++)
             Serial.printf("%02X", ir_code[i]);
-        Serial.println();
+        Serial.printf(" : %s  -  \n\n", ac.toString().c_str());
+    }
+
+    void CommonStandardSettings() {   // Personal preferences
+        ac.stateReset();
+        ac.setiSave10C(false);
+        ac.setMode(kMitsubishiAcHeat);
+        ac.setEcocool(false);
+        ac.setNaturalFlow(false);
+        ac.setFan(kMitsubishiAcFanAuto);
+        ac.setVane(kMitsubishiAcVaneHighest);   // right set high to point towards bathroom
+        ac.setVaneLeft(kMitsubishiAcVaneAuto);  // let it find out itself
+        ac.setWideVane(kMitsubishiAcWideVaneAuto);
+        ac.setAbsenseDetect(false);
+        ac.setISee(true);
+        ac.setDirectIndirect(kMitsubishiAcDirectOff);
+        ac.setTimer(kMitsubishiAcStopTimer);
+        ac.setWeeklyTimerEnabled(false);
     }
 
 // This function is called when V0 is received fromthe Blynk app. 
 // It then sends V0 (ON or OFF) to the IR port
 
     BLYNK_WRITE(V0) {
-        Serial.println("TURN OFF");
-        ac.off();
+        Serial.println("RESET A/C");
+        CommonStandardSettings();
         ac.send();
         printState();
         delay(5000);
     }
 
-
-    // This function is called when V0 is received fromthe Blynk app. 
-    // It then sends V0 (ON or OFF) to the IR port
     BLYNK_WRITE(V1) {  
         Serial.printf("SET TEMPERATURE TO %d \n", param.asInt());
         ac.setTemp(param.asInt());
@@ -262,23 +275,20 @@ uint16_t Samsung_power_toggle[71] = {
         case 2:
             Serial.println("Turn ON and set to and set to Heating and I-SAVE at 10 deg.");
             ac.on();
-            ac.setMode(kMitsubishiAcHeat);
-            ac.setFan(kMitsubishiAcFanSilent);
-            ac.setVane(kMitsubishiAcVaneLowest);
-            ac.setVane(kMitsubishiAcWideVaneWide);
-            ac.setTimer(kMitsubishiAcStopTimer);
-            ac.setiSave10C();
+            ac.setTemp(kMitsubishiAcMinTemp);
+            ac.setFan(2);
+            ac.setVane(kMitsubishiAcVaneHighest);   // right set high to point towards bathroom
+            ac.setVaneLeft(kMitsubishiAcVaneLow);   // left point towards floor to heat low
+            ac.setWeeklyTimerEnabled(false);        // no interference in isave mode wanted
+            ac.setISee(false);
+            ac.setiSave10C(true);
             break;
         case 3:
             Serial.println("V26: Turn ON and set to Heating at 26 deg. Set fan and vane to AUTO.");
             ac.on();
-            ac.setMode(kMitsubishiAcHeat);
-            ac.setFan(kMitsubishiAcFanAuto);
-            ac.setVane(kMitsubishiAcVaneAuto);
-            ac.setVane(kMitsubishiAcWideVaneAuto);
-            ac.setTimer(kMitsubishiAcStartTimer);
+            CommonStandardSettings();
             ac.setTemp(26);
-            // statements
+            ac.setWeeklyTimerEnabled(true);
             break;
         default:
             Serial.printf("V2: Unsupported parameter: %d\n", var);
@@ -287,7 +297,6 @@ uint16_t Samsung_power_toggle[71] = {
         ac.send();
         printState();
         delay(5000);
-
     }
 
 #endif
