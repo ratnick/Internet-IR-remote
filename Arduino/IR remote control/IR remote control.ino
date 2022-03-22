@@ -23,9 +23,60 @@
 #include <ir_Mitsubishi.h>
 #include <ir_Daikin.h>
 
+// Including the libraries below, allows to turn off Deep Search in libraries => faster compiling
+#include "FirebaseLib.h"
+#include <WifiLib.h>
+#include <SysCall.h>
+#include <sdios.h>
+#include <BlockDriver.h>
+#include <SDFSFormatter.h>
+#include <SdFatConfig.h>
+#include <SdFat.h>
+#include <MinimumSerial.h>
+#include <FreeStack.h>
+#include <SDFS.h>
+#include <SD.h>
+#include <FirebaseJson.h>    // works with 2.2.8, but NOT 2.3.9. This will give random errors in communication with Firebase. I think it's becaise FirebaseJSON struct or class is changed
+// end 
+
+// OTA upload
+#include <LEAmDNS_Priv.h>
+#include <ArduinoOTA.h>
+// end
+
+#include "compile_flags.h"
+
+#ifdef USE_WIFI
+#include <FirebaseESP8266.h>
+#include <ESP8266WiFi.h>
+#include <WiFiUdp.h>
+#include <WiFiServer.h>
+#include <WiFiClient.h>
+#endif
+
+#ifdef USE_FIREBASE
+#include <SPI.h>
+#include <FirebaseESP8266HTTPClient.h>
+#endif
+
+
+#include <SoftwareSerial.h>
+#include <Wire.h>
+#include <DHTesp.h>
+#include <EEPROM.h>
+#include <TimeLib.h>        // http://playground.arduino.cc/code/time - installed via library manager
+#include <time.h>
+
+// own libraries
+#include "PersistentMemory.h"
+#include "globals.h"
+#include "ciotc_config.h" // Wifi configuration here
+#include "LEDHandler.h"
+#include "OTALib.h"
+#include <LogLib.h>
+
 
 #define D1MINI
-
 #define MITSIBISHI
 //#define DAIKIN
 //#define RECEIVE
@@ -40,14 +91,6 @@ uint16_t Samsung_power_toggle[71] = {
     20,    20, 20, 20,  20,  20, 20, 20, 20, 20, 63,  20, 20, 20, 20,
     20,    20, 20, 20,  20,  20, 20, 20, 20, 63, 20,  20, 20, 63, 20,
     63,    20, 63, 20,  63,  20, 63, 20, 63, 20, 1798 };
-
-#ifdef D1MINI
-#define IR_TX_LED D2  // ESP8266 GPIO pin to use. Recommended: 4 (D2). (13 on a WeMOS D1 R2 board)
-#define IR_RX_LED D5
-#else //D1 R2
-#define IR_TX_LED 13  // ESP8266 GPIO pin to use. Recommended: 4 (D2). (13 on a WeMOS D1 R2 board)
-#define IR_RX_LED 14
-#endif
 
 #ifdef MITSIBISHI
     IRMitsubishiAC ac(IR_TX_LED);  // Set the GPIO used for sending messages.
@@ -77,8 +120,23 @@ WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "pool.ntp.org", utcOffsetInSeconds);
 
 void setup() {
+    delayNonBlocking(500);
     Serial.begin(115200);
-    #ifdef RECEIVE
+
+    InitDebugLevel(DEBUGLEVEL);
+    PersistentMemory.SetdebugLevel(DEBUGLEVEL);
+
+    // read persistent memory
+    PersistentMemory.init(FORCE_NEW_VALUES, TOTAL_SECS_TO_SLEEP, DEVICE_ID, HARDWARE_DESCRIPTION, DefaultRunmode.c_str(), VALVE_OPEN_DURATION, VALVE_SOAK_TIME, LOOP_DELAY, DEBUGLEVEL);   // false: read from memory.  true: initialize
+    PersistentMemory.Printps();
+    //PersistentMemory.UnitTest();  // just for testing
+    //	PersistentMemory.SetdebugLevel(debuglevel);
+    Serial.printf("persisten mem debugLevel=%d (should be %d)\n", PersistentMemory.GetdebugLevel(), DEBUGLEVEL);
+    SetFBDebugLevel(PersistentMemory.GetdebugLevel());
+    initFlashLED();
+    LogLine(4, __FUNCTION__, "A");
+
+#ifdef RECEIVE
         irrecv.enableIRIn();  // Start the receiver
         Serial.println("Receiving...");
     #else
